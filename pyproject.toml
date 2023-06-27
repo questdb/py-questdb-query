@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "questdb-query"
+version = "0.1.0"
+description = "Fast query over HTTP(S)/CSV for QuestDB"
+readme = "README.md"
+packages = [{include = "questdb_query"}]
+authors = ["Adam Cimarosti <adam@questdb.io>"]
+license = "Apache License 2.0"
+repository = "https://github.com/questdb/py-questdb-query/"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+numpy = "^1.25.0"
+pandas = "^2.0.2"
+pyarrow = "^12.0.1"
+aiohttp = {extras = ["speedups"], version = "^3.8.4"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
