@@ -5,6 +5,7 @@ Async functions to query QuestDB over HTTP(S) via CSV into Pandas or Numpy.
 __all__ = ['pandas_query', 'numpy_query']
 
 import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
@@ -14,6 +15,8 @@ import pandas as pd
 
 from .endpoint import Endpoint
 from .errors import QueryError
+from .pandas_util import pandas_to_numpy
+from .stats import Stats
 
 
 def _new_session(endpoint):
@@ -79,7 +82,10 @@ async def _query_pandas(
                 try:
                     if col_type == 'TIMESTAMP':
                         series = df[col_name]
-                        series = pd.to_datetime(series)
+                        # Drop the UTC timezone during conversion.
+                        # This allows `.to_numpy()` on the series to
+                        # yield a `datetime64` dtype column.
+                        series = pd.to_datetime(series).dt.tz_convert(None)
                         df[col_name] = series
                 except Exception as e:
                     raise ValueError(
@@ -91,11 +97,12 @@ async def _query_pandas(
         return df, download_bytes
 
 
-async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1, *, stats: bool = False) -> pd.DataFrame:
+async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -> pd.DataFrame:
     """
     Query QuestDB via CSV to a Pandas DataFrame.
     """
     endpoint = endpoint or Endpoint()
+    start_ts = time.perf_counter_ns()
     with ThreadPoolExecutor(max_workers=chunks) as executor:
         async with _new_session(endpoint) as session:
             result_schema, row_count = await _pre_query(session, endpoint, query)
@@ -113,22 +120,16 @@ async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1, *
             results = await asyncio.gather(*tasks)
             sub_dataframes = [result[0] for result in results]
             df = pd.concat(sub_dataframes)
-            if stats:
-                total_downloaded = sum(result[1] for result in results)
-                return df, total_downloaded
-            else:
-                return df
+            end_ts = time.perf_counter_ns()
+            total_downloaded = sum(result[1] for result in results)
+            df.query_stats = Stats(end_ts - start_ts, row_count, total_downloaded)
+            return df
 
 
-async def numpy_query(query: str, endpoint: Endpoint = None, chunks: int = 1, *, stats: bool = False) -> dict[str, np.array]:
+async def numpy_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -> dict[str, np.array]:
     """
     Query and obtain the result as a dict of columns.
     Each column is a numpy array.
     """
-    res = await pandas_query(query, endpoint, chunks, stats=stats)
-    df, stats_res = res if stats else (res, None)
-    # Calling `.to_numpy()` for each column is quite efficient and generally avoids copies.
-    # Pandas already stores columns as numpy.
-    # We go through Pandas as this allows us to get fast CSV parsing.
-    np_arrays = {col_name: df[col_name].to_numpy() for col_name in df}
-    return (np_arrays, stats_res) if stats else np_arrays
+    df = await pandas_query(query, endpoint, chunks)
+    return pandas_to_numpy(df)

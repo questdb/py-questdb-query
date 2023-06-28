@@ -8,7 +8,7 @@ From the command line, run as::
 """
 
 from .endpoint import Endpoint
-from .synchronous import numpy_query
+from .synchronous import pandas_query
 
 
 def _parse_args():
@@ -25,20 +25,16 @@ def _parse_args():
 
 
 def main(args):
-    import time
     endpoint = Endpoint(
         host=args.host,
         port=args.port,
         https=args.https,
         username=args.username,
         password=args.password)
-    start_time = time.perf_counter()
-    np_arrs, total_downloaded = numpy_query(endpoint, args.query, args.chunks, stats=True)
-    elapsed = time.perf_counter() - start_time
-    print(f'Elapsed: {elapsed}')
-    bytes_throughput = total_downloaded / 1024.0 / 1024.0 / elapsed
-    print(
-        f'Data throughput: {bytes_throughput:.2f} MiB/sec (of downloaded CSV data)')
+    df = pandas_query(args.query, endpoint, args.chunks)
+    print(df)
+    print()
+    print(df.query_stats)
 
 
 if __name__ == "__main__":
