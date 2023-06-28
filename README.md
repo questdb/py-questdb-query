@@ -93,6 +93,11 @@ see great benefits in going from 1 chunk (the default) to 8, the improvement goi
 
 _Read on for more details on benchmarking: This is covered later in this README page._
 
+> :warning: The `chunks > 1` parameter parallelizes queries. If the table(s) queried contain fast-moving data the
+> results may be inconsistent as each chunk's query would be started at slightly different times.
+>
+> To avoid consistency issues formulate the query so that it only queries data that is not changing.
+> You can do this, for example, by specifying a `timestamp` range in the `WHERE` clause.
 
 ## Querying into Pandas
 
