@@ -21,9 +21,11 @@ from .stats import Stats
 
 def _new_session(endpoint):
     auth = None
+    if (endpoint.password is not None) and (endpoint.username is None):
+        raise ValueError('Password specified without username')
     if endpoint.username is not None:
-        if endpoint.password is not None:
-            raise ValueError('Password specified without username')
+        if endpoint.password is None:
+            raise ValueError('Username specified without password')
         auth = aiohttp.BasicAuth(endpoint.username, endpoint.password)
     return aiohttp.ClientSession(auth=auth)
 
