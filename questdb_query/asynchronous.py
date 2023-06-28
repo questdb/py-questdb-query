@@ -35,6 +35,10 @@ async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: 
     dtypes_map = {
         'STRING': ('STRING', None),
         'SYMBOL': ('SYMBOL', None),
+        'SHORT': ('SHORT', 'int16'),
+        'BOOLEAN': ('BOOLEAN', 'bool'),
+        'INT': ('INT', 'int32'),
+        'LONG': ('LONG', 'int64'),
         'DOUBLE': ('DOUBLE', 'float64'),
         'FLOAT': ('FLOAT', 'float32'),
         'CHAR': ('CHAR', None),
