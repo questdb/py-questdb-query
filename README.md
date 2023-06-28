@@ -1,15 +1,15 @@
 # py-questdb-query
-Fast query over HTTP(S)/CSV for QuestDB
+This library allows you to perform fast queries over HTTP(S)/CSV for QuestDB, a high-performance time-series database.
 
 ## Installation
 
-To install (or upgrade):
+The library can be installed using the following command:
 
 ```shell
 python3 -m pip install -U git+https://github.com/questdb/py-questdb-query.git#questdb_query
 ```
 
-If you need to uninstall it, run:
+To uninstall the library, you can use the command:
 
 ```shell
 python3 -m pip uninstall questdb_query
@@ -17,9 +17,8 @@ python3 -m pip uninstall questdb_query
 
 ## Basic Usage, querying into Numpy
 
-To query the database on localhost, just use the `numpy_query` function.
-
-Here's an example querying CPU utilisation data from a `localhost` database.
+Once installed, you can use the library to query a QuestDB database. Here's an example that demonstrates how to query
+CPU utilization data using the library against a database running on `localhost`.
 
 ```python
 from questdb_query import numpy_query
@@ -69,6 +68,28 @@ np_arrs = numpy_query('select * from cpu limit 10', endpoint)
 ```
 
 Note how the example above enables HTTPS and specifies a username and password for authentication.
+
+
+## Chunks: Query Parallelism
+
+You can sometimes improve performance by splitting up a large query into smaller ones, running them in parallel,
+and joining the results together. This is especially useful if you have multiple CPUs available.
+
+The `numpy_query` function can do this automatically for you, by specifying the `chunks` parameter.
+
+The example below, splits up the query into 6 parallel chunks.
+
+```python
+from questdb_query import numpy_query
+
+np_arrs = numpy_query('select * from cpu', chunks=6)
+```
+
+The speed-up of splitting up a query into smaller ones is highly query-dependent and we recommend you experiment and
+benchmark. Mostly due to Python library limitations, not all parts of the query can be parallelized, so whilst you may
+see great benefits in going from 1 chunk (the default) to 8, the improvement going from 8 to 16 might be marginal. 
+
+_Read on for more details on benchmarking: This is covered later in this README page._
 
 
 ## Querying into Pandas
