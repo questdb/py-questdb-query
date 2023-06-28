@@ -1,6 +1,8 @@
 # py-questdb-query
 This library allows you to perform fast queries over HTTP(S)/CSV for QuestDB, a high-performance time-series database.
 
+Query results are obtained as either Pandas dataframes or dicts of numpy arrays. 
+
 ## Installation
 
 The library can be installed using the following command:
