@@ -193,6 +193,27 @@ MiB: 1332.144
 MiB/s: 522.962
 ```
 
+These are the complete command line arguments:
+
+```bash
+$ python3 -m questdb_query.tool --help
+```
+```
+usage: tool.py [-h] [--host HOST] [--port PORT] [--https] [--username USERNAME] [--password PASSWORD] [--chunks CHUNKS] query
+
+positional arguments:
+  query
+
+optional arguments:
+  -h, --help           show this help message and exit
+  --host HOST
+  --port PORT
+  --https
+  --username USERNAME
+  --password PASSWORD
+  --chunks CHUNKS
+```
+
 
 ## Async operation
 
