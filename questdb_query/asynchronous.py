@@ -27,7 +27,7 @@ def _new_session(endpoint):
         if endpoint.password is None:
             raise ValueError('Username specified without password')
         auth = aiohttp.BasicAuth(endpoint.username, endpoint.password)
-    return aiohttp.ClientSession(auth=auth)
+    return aiohttp.ClientSession(auth=auth, read_bufsize=4 * 1024 * 1024)
 
 
 async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: str) -> tuple[
