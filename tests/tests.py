@@ -8,9 +8,10 @@ import unittest
 from pathlib import Path
 import io
 import http.client
-from urllib import request, parse
 
-from questdb_query import numpy_query, pandas_query, Endpoint
+import questdb_query.asynchronous as qdbq_a
+import questdb_query.synchronous as qdbq_s
+from questdb_query import Endpoint
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
@@ -170,7 +171,7 @@ def load_trips_table(qdb):
     return retry(check_table, timeout_sec=10)
 
 
-class TestModule(unittest.TestCase):
+class TestModule(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -192,26 +193,34 @@ class TestModule(unittest.TestCase):
     def _get_endpoint(self):
         return Endpoint(self.qdb.host, self.qdb.http_server_port)
 
-    def numpy_query(self, query, *, chunks=1):
+    def s_numpy_query(self, query, *, chunks=1):
         endpoint = self._get_endpoint()
-        return numpy_query(query, endpoint=endpoint, chunks=chunks)
+        return qdbq_s.numpy_query(query, endpoint=endpoint, chunks=chunks)
     
-    def pandas_query(self, query, *, chunks=1):
+    async def a_numpy_query(self, query, *, chunks=1):
         endpoint = self._get_endpoint()
-        return pandas_query(query, endpoint=endpoint, chunks=chunks)
+        return await qdbq_a.numpy_query(query, endpoint=endpoint, chunks=chunks)
+    
+    def s_pandas_query(self, query, *, chunks=1):
+        endpoint = self._get_endpoint()
+        return qdbq_s.pandas_query(query, endpoint=endpoint, chunks=chunks)
+    
+    async def a_pandas_query(self, query, *, chunks=1):
+        endpoint = self._get_endpoint()
+        return await qdbq_a.pandas_query(query, endpoint=endpoint, chunks=chunks)
 
     def test_count_pandas(self):
-        act = self.pandas_query('SELECT count() FROM trips')
+        act = self.s_pandas_query('SELECT count() FROM trips')
         exp = pd.DataFrame({'count': pd.Series([10000], dtype='Int64')})
         assert_frame_equal(act, exp, check_column_type=True)
 
     def test_count_numpy(self):
-        act = self.numpy_query('SELECT count() FROM trips')
+        act = self.s_numpy_query('SELECT count() FROM trips')
         exp = {'count': np.array([10000], dtype='int64')}
         self.assertEqual(act, exp)
 
     def test_head_pandas(self):
-        act = self.pandas_query('SELECT * FROM trips LIMIT 5')
+        act = self.s_pandas_query('SELECT * FROM trips LIMIT 5')
         exp = pd.DataFrame({
             'cab_type': pd.Series([
                 'yellow', 'yellow', 'green', 'yellow', 'yellow'],
@@ -300,7 +309,7 @@ class TestModule(unittest.TestCase):
         assert_frame_equal(act, exp, check_column_type=True)
 
     def test_head_numpy(self):
-        act = self.numpy_query('SELECT * FROM trips LIMIT 5')
+        act = self.s_numpy_query('SELECT * FROM trips LIMIT 5')
         exp = {
             'cab_type': np.array([
                 'yellow', 'yellow', 'green', 'yellow', 'yellow'],
@@ -395,9 +404,9 @@ class TestModule(unittest.TestCase):
         qry = f'SELECT * FROM trips'
         if limit is not None:
             qry += f' limit {limit}'
-        orig = self.pandas_query(qry, chunks=1)
+        orig = self.s_pandas_query(qry, chunks=1)
         chunkings = [1, 2, 3, 7, 10, 11, 20, 100, 117]
-        others = [self.pandas_query(qry, chunks=c) for c in chunkings]
+        others = [self.s_pandas_query(qry, chunks=c) for c in chunkings]
         for other in others:
             assert_frame_equal(orig, other, check_column_type=True)
 
@@ -411,7 +420,7 @@ class TestModule(unittest.TestCase):
         self._test_chunked_pandas()
 
     def test_almost_all_types(self):
-        act = self.pandas_query('SELECT * FROM almost_all_types')
+        act = self.s_pandas_query('SELECT * FROM almost_all_types')
         schema = {
             name: str(val)
             for name, val
@@ -436,6 +445,16 @@ class TestModule(unittest.TestCase):
         self.assertEqual(exp_schema.keys(), schema.keys())
         for key in exp_schema:
             self.assertEqual((key, exp_schema[key]), (key, schema[key]))
+
+    async def test_async_pandas(self):
+        act = await self.a_pandas_query('SELECT count() FROM trips')
+        exp = pd.DataFrame({'count': pd.Series([10000], dtype='Int64')})
+        assert_frame_equal(act, exp, check_column_type=True)
+
+    async def test_async_numpy(self):
+        act = await self.a_numpy_query('SELECT count() FROM trips')
+        exp = {'count': np.array([10000], dtype='int64')}
+        self.assertEqual(act, exp)
 
 
 if __name__ == '__main__':

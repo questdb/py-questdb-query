@@ -52,13 +52,18 @@ class TokenAuth(namedtuple("TokenAuth", ["token"])):
         return "Bearer " + self.token
 
 
-def _new_session(endpoint):
+def _new_session(endpoint, timeout: int = None):
     auth = None
     if endpoint.username:
         auth = aiohttp.BasicAuth(endpoint.username, endpoint.password)
     elif endpoint.token:
         auth = TokenAuth(endpoint.token)
-    return aiohttp.ClientSession(auth=auth, read_bufsize=4 * 1024 * 1024)
+    timeout = aiohttp.ClientTimeout(total=timeout) \
+        or aiohttp.ClientTimeout(total=300)
+    return aiohttp.ClientSession(
+        auth=auth,
+        read_bufsize=4 * 1024 * 1024,
+        timeout=timeout)
 
 
 async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: str) -> tuple[
@@ -148,14 +153,20 @@ async def _query_pandas(
         return df, download_bytes
 
 
-async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -> pd.DataFrame:
+async def pandas_query(
+        query: str,
+        endpoint: Endpoint = None,
+        chunks: int = 1,
+        timeout: int = None) -> pd.DataFrame:
     """
     Query QuestDB via CSV to a Pandas DataFrame.
+
+    :param timeout: The timeout in seconds for the query, defaults to None (300 seconds).
     """
     endpoint = endpoint or Endpoint()
     start_ts = time.perf_counter_ns()
     with ThreadPoolExecutor(max_workers=chunks) as executor:
-        async with _new_session(endpoint) as session:
+        async with _new_session(endpoint, timeout) as session:
             result_schema, row_count = await _pre_query(session, endpoint, query)
             chunks = max(min(chunks, row_count), 1)
             rows_per_spawn = row_count // chunks
@@ -180,10 +191,17 @@ async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -
             return df
 
 
-async def numpy_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -> dict[str, np.array]:
+async def numpy_query(
+        query: str,
+        endpoint: Endpoint = None,
+        chunks: int = 1,
+        timeout: int = None
+        ) -> dict[str, np.array]:
     """
     Query and obtain the result as a dict of columns.
     Each column is a numpy array.
+
+    :param timeout: The timeout in seconds for the query, defaults to None (300 seconds).
     """
-    df = await pandas_query(query, endpoint, chunks)
+    df = await pandas_query(query, endpoint, chunks, timeout)
     return pandas_to_numpy(df)
