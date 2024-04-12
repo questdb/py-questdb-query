@@ -28,21 +28,17 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: '11'
-        distribution: 'temurin'  # AdoptOpenJDK's build (Eclipse Temurin)
+        distribution: 'temurin'
 
-    - name: Install Poetry
+    - name: Install and Configure Poetry Path
       run: |
-        curl -sSL https://install.python-poetry.org | python -
-
-    - name: Configure Poetry Path
-      shell: bash
-      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-      if: runner.os != 'Windows'
-
-    - name: Configure Poetry Path (Windows)
+        (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+        if ($env:OS -eq 'Windows_NT') {
+          $env:PATH += ";$env:USERPROFILE\.poetry\bin"
+        } else {
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+        }
       shell: pwsh
-      run: echo "$env:USERPROFILE\.poetry\bin" >> $GITHUB_ENV
-      if: runner.os == 'Windows'
 
     - name: Configure Poetry
       run: poetry config virtualenvs.create false
