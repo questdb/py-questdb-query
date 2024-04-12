@@ -8,6 +8,8 @@ import io
 import http.client
 from urllib import request, parse
 
+from questdb_query import numpy_query
+
 # Import the code we can use to download and run a test QuestDB instance
 sys.path.append(str(
     Path(__file__).resolve().parent.parent /

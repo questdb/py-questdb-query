@@ -1,18 +1,25 @@
 # Developer's Notes
 
-## Running tests
-
-Running tests requires an instance of QuestDB.
-
-This repo reuses the some testing code from the `c-questdb-client` repo.
-To use this code, sync the submodule in git:
+## Cloning and Running Tests
 
 ```shell
+git clone https://github.com/questdb/py-questdb-query.git
+cd py-questdb-query
 git submodule update --init
+poetry install
+./test
 ```
 
 The tests will automatically download and start a QuestDB instance, but you
 also need to have a Java 11 runtime installed.
+
+## Updating the dependencies
+
+Tweak the `pyproject.toml` file (if needed) and then run:
+
+```
+poetry update
+```
 
 ## Cutting a release
 
