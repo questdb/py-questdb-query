@@ -46,4 +46,4 @@ jobs:
       run: poetry install --no-root
 
     - name: Run tests
-      run: poetry run python -m unittest discover tests
+      run: poetry run python -m unittest discover tests -v

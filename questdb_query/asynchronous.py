@@ -125,6 +125,7 @@ async def _query_pandas(
                         series = pd.to_datetime(series).dt.tz_convert(None)
                         df[col_name] = series
                 except Exception as e:
+                    print(df[col_name])
                     raise ValueError(
                         f'Failed to convert column {col_name} to type {col_type}: {e}\n{series}')
             return df
@@ -143,6 +144,7 @@ async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -
     with ThreadPoolExecutor(max_workers=chunks) as executor:
         async with _new_session(endpoint) as session:
             result_schema, row_count = await _pre_query(session, endpoint, query)
+            chunks = max(min(chunks, row_count), 1)
             rows_per_spawn = row_count // chunks
             limit_ranges = [
                 (
@@ -157,6 +159,8 @@ async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -
             results = await asyncio.gather(*tasks)
             sub_dataframes = [result[0] for result in results]
             df = pd.concat(sub_dataframes)
+            if chunks > 1:
+                df.reset_index(drop=True, inplace=True)
             end_ts = time.perf_counter_ns()
             total_downloaded = sum(result[1] for result in results)
             df.query_stats = Stats(end_ts - start_ts, row_count, total_downloaded)

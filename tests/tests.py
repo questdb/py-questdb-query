@@ -163,8 +163,209 @@ class TestModule(unittest.TestCase):
 
     def test_count_numpy(self):
         act = self.numpy_query('SELECT count() FROM trips')
-        exp = {'count': np.array([10000])}
+        exp = {'count': np.array([10000], dtype='int64')}
         self.assertEqual(act, exp)
+
+    def test_head_pandas(self):
+        act = self.pandas_query('SELECT * FROM trips LIMIT 5')
+        exp = pd.DataFrame({
+            'cab_type': pd.Series([
+                'yellow', 'yellow', 'green', 'yellow', 'yellow'],
+                dtype='object'),
+            'vendor_id': pd.Series([
+                'VTS', 'VTS', 'VTS', 'CMT', 'VTS'],
+                dtype='object'),
+            'pickup_datetime': pd.Series(pd.to_datetime([
+                '2016-01-01T00:00:00.000000',
+                '2016-01-01T00:00:00.000000',
+                '2016-01-01T00:00:01.000000',
+                '2016-01-01T00:00:01.000000',
+                '2016-01-01T00:00:02.000000']),
+                dtype='datetime64[ns]'),
+            'dropoff_datetime': pd.Series(pd.to_datetime([
+                '2016-01-01T00:26:45.000000',
+                '2016-01-01T00:18:30.000000',
+                '2016-01-01T00:02:10.000000',
+                '2016-01-01T00:11:55.000000',
+                '2016-01-01T00:11:08.000000']),
+                dtype='datetime64[ns]'),
+            'rate_code_id': pd.Series([
+                'Standard rate',
+                'Standard rate',
+                'Standard rate',
+                'Standard rate',
+                'Standard rate'],
+                dtype='object'),
+            'pickup_latitude': pd.Series([
+                -73.9940567, -73.9801178, -73.92303467, -73.97942352, -73.99834442],
+                dtype='float'),
+            'pickup_longitude': pd.Series([
+                40.71998978, 40.74304962, 40.70674515, 40.74461365, 40.72389603],
+                dtype='float'),
+            'dropoff_latitude': pd.Series([
+                40.78987122, 40.76314163, 40.70864487, 40.7539444, 40.68840027],
+                dtype='float'),
+            'dropoff_longitude': pd.Series([
+                -73.966362, -73.9134903, -73.92714691, -73.99203491, -73.995849610000],
+                dtype='float'),
+            'passenger_count': pd.Series([
+                2, 2, 1, 1, 1],
+                dtype='int32'),
+            'trip_distance': pd.Series([
+                7.45, 5.52, 0.34, 1.2, 3.21],
+                dtype='float'),
+            'fare_amount': pd.Series([
+                26.0, 19.0, 3.5, 9.0, 11.5],
+                dtype='float'),
+            'extra': pd.Series([
+                0.5, 0.5, 0.5, 0.5, 0.5],
+                dtype='float'),
+            'mta_tax': pd.Series([
+                0.5, 0.5, 0.5, 0.5, 0.5],
+                dtype='float'),
+            'tip_amount': pd.Series([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'tolls_amount': pd.Series([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'ehail_fee': pd.Series([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'improvement_surcharge': pd.Series([
+                0.3, 0.3, 0.3, 0.3, 0.3],
+                dtype='float'),
+            'congestion_surcharge': pd.Series([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'total_amount': pd.Series([
+                27.3, 20.3, 4.8, 10.3, 12.8],
+                dtype='float'),
+            'payment_type': pd.Series([
+                'Cash', 'Cash', 'Cash', 'Cash', 'Cash'],
+                dtype='object'),
+            'trip_type': pd.Series([
+                'na', 'na', 'na', 'na', 'na'],
+                dtype='object'),
+            'pickup_location_id': pd.Series([
+                0, 0, 0, 0, 0],
+                dtype='int32'),
+            'dropoff_location_id': pd.Series([
+                0, 0, 0, 0, 0],
+                dtype='int32')})
+        assert_frame_equal(act, exp, check_column_type=True)
+
+    def test_head_numpy(self):
+        act = self.numpy_query('SELECT * FROM trips LIMIT 5')
+        exp = {
+            'cab_type': np.array([
+                'yellow', 'yellow', 'green', 'yellow', 'yellow'],
+                dtype='object'),
+            'vendor_id': np.array([
+                'VTS', 'VTS', 'VTS', 'CMT', 'VTS'],
+                dtype='object'),
+            'pickup_datetime': np.array([
+                '2016-01-01T00:00:00.000000',
+                '2016-01-01T00:00:00.000000',
+                '2016-01-01T00:00:01.000000',
+                '2016-01-01T00:00:01.000000',
+                '2016-01-01T00:00:02.000000'],
+                dtype='datetime64[ns]'),
+            'dropoff_datetime': np.array([
+                '2016-01-01T00:26:45.000000',
+                '2016-01-01T00:18:30.000000',
+                '2016-01-01T00:02:10.000000',
+                '2016-01-01T00:11:55.000000',
+                '2016-01-01T00:11:08.000000'],
+                dtype='datetime64[ns]'),
+            'rate_code_id': np.array([
+                'Standard rate',
+                'Standard rate',
+                'Standard rate',
+                'Standard rate',
+                'Standard rate'],
+                dtype='object'),
+            'pickup_latitude': np.array([
+                -73.9940567, -73.9801178, -73.92303467, -73.97942352, -73.99834442],
+                dtype='float'),
+            'pickup_longitude': np.array([
+                40.71998978, 40.74304962, 40.70674515, 40.74461365, 40.72389603],
+                dtype='float'),
+            'dropoff_latitude': np.array([
+                40.78987122, 40.76314163, 40.70864487, 40.7539444, 40.68840027],
+                dtype='float'),
+            'dropoff_longitude': np.array([
+                -73.966362, -73.9134903, -73.92714691, -73.99203491, -73.995849610000],
+                dtype='float'),
+            'passenger_count': np.array([
+                2, 2, 1, 1, 1],
+                dtype='int32'),
+            'trip_distance': np.array([
+                7.45, 5.52, 0.34, 1.2, 3.21],
+                dtype='float'),
+            'fare_amount': np.array([
+                26.0, 19.0, 3.5, 9.0, 11.5],
+                dtype='float'),
+            'extra': np.array([
+                0.5, 0.5, 0.5, 0.5, 0.5],
+                dtype='float'),
+            'mta_tax': np.array([
+                0.5, 0.5, 0.5, 0.5, 0.5],
+                dtype='float'),
+            'tip_amount': np.array([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'tolls_amount': np.array([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'ehail_fee': np.array([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'improvement_surcharge': np.array([
+                0.3, 0.3, 0.3, 0.3, 0.3],
+                dtype='float'),
+            'congestion_surcharge': np.array([
+                0.0, 0.0, 0.0, 0.0, 0.0],
+                dtype='float'),
+            'total_amount': np.array([
+                27.3, 20.3, 4.8, 10.3, 12.8],
+                dtype='float'),
+            'payment_type': np.array([
+                'Cash', 'Cash', 'Cash', 'Cash', 'Cash'],
+                dtype='object'),
+            'trip_type': np.array([
+                'na', 'na', 'na', 'na', 'na'],
+                dtype='object'),
+            'pickup_location_id': np.array([
+                0, 0, 0, 0, 0],
+                dtype='int32'),
+            'dropoff_location_id': np.array([
+                0, 0, 0, 0, 0],
+                dtype='int32')}
+        self.assertEqual(act.keys(), exp.keys())
+        for k in act:
+            np.testing.assert_array_equal(act[k], exp[k])
+            self.assertEqual(act[k].dtype, exp[k].dtype)
+
+    def _test_chunked_pandas(self, limit=None):
+        qry = f'SELECT * FROM trips'
+        if limit is not None:
+            qry += f' limit {limit}'
+        orig = self.pandas_query(qry, chunks=1)
+        chunkings = [1, 2, 3, 7, 10, 11, 20, 100, 117]
+        others = [self.pandas_query(qry, chunks=c) for c in chunkings]
+        for other in others:
+            assert_frame_equal(orig, other, check_column_type=True)
+
+    def test_chunked_pandas_10(self):
+        self._test_chunked_pandas(10)
+
+    def test_chunked_pandas_133(self):
+        self._test_chunked_pandas(133)
+
+    def test_chunked_pandas(self):
+        self._test_chunked_pandas()
+
 
 if __name__ == '__main__':
     unittest.main()
