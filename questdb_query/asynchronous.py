@@ -38,6 +38,7 @@ async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: 
         'STRING': ('STRING', None),
         'SYMBOL': ('SYMBOL', None),
         'SHORT': ('SHORT', 'int16'),
+        'BYTE': ('BYTE', 'int8'),
         'BOOLEAN': ('BOOLEAN', 'bool'),
         'INT': ('INT', 'int32'),
         'LONG': ('LONG', 'int64'),
