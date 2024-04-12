@@ -66,23 +66,36 @@ async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: 
     url = f'{endpoint.url}/exec'
     params = [('query', query), ('count', 'true'), ('limit', '0')]
     dtypes_map = {
-        'STRING': ('STRING', None),
-        'SYMBOL': ('SYMBOL', None),
+        'STRING': ('STRING', 'string'),
+        'SYMBOL': ('SYMBOL', 'string'),
         'SHORT': ('SHORT', 'int16'),
         'BOOLEAN': ('BOOLEAN', 'bool'),
-        'INT': ('INT', 'int32'),
-        'LONG': ('LONG', 'int64'),
+        'INT': ('INT', 'Int32'),
+        'LONG': ('LONG', 'Int64'),
         'DOUBLE': ('DOUBLE', 'float64'),
         'FLOAT': ('FLOAT', 'float32'),
-        'CHAR': ('CHAR', None),
-        'TIMESTAMP': ('TIMESTAMP', None)
+        'CHAR': ('CHAR', 'string'),
+        'TIMESTAMP': ('TIMESTAMP', None),
+        'IPV4': ('IPV4', 'string'),
+        'BYTE': ('BYTE', 'int8'),
+        'DATE': ('DATE', None),
+        'UUID': ('UUID', 'string'),
+        'BINARY': ('BINARY', 'string'),
+        'LONG256': ('LONG256', 'string'),
     }
+
+    def get_dtype(col):
+        ty = col['type'].upper()
+        if ty.startswith('GEOHASH'):
+            return (ty, 'string')
+        return dtypes_map[ty]
+
     async with session.get(url=url, params=params) as resp:
         result = await resp.json()
         if resp.status != 200:
             raise QueryError.from_json(result)
         columns = [
-            (col['name'], dtypes_map[col['type'].upper()])
+            (col['name'], get_dtype(col))
             for col in result['columns']]
         count = result['count']
         return columns, count
@@ -117,7 +130,7 @@ async def _query_pandas(
                 col_name = col_schema[0]
                 col_type = col_schema[1][0]
                 try:
-                    if col_type == 'TIMESTAMP':
+                    if col_type in ('TIMESTAMP', 'DATE'):
                         series = df[col_name]
                         # Drop the UTC timezone during conversion.
                         # This allows `.to_numpy()` on the series to

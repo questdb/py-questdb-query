@@ -79,7 +79,50 @@ def upload_csv(qdb, table, csv_path):
         conn.close()
 
 
-def load_test_data(qdb):
+def load_all_types_table(qdb):
+    qdb.http_sql_query('''
+        CREATE TABLE almost_all_types (
+            id int,
+            active boolean,
+            ip_address ipv4,
+            age byte,
+            temperature short,
+            grade char,
+            account_balance float,
+            currency_symbol symbol,
+            description string,
+            record_date date,
+            event_timestamp timestamp,
+            revenue double,
+            user_uuid uuid,
+            long_number long,
+            crypto_hash long256
+        ) timestamp (event_timestamp) PARTITION BY DAY WAL;
+    ''')
+    qdb.http_sql_query('''
+        INSERT INTO almost_all_types (
+            id, 
+            active, 
+            ip_address, 
+            age, 
+            temperature, 
+            grade, 
+            account_balance, 
+            currency_symbol, 
+            description, 
+            record_date, 
+            event_timestamp, 
+            revenue, 
+            user_uuid, 
+            long_number, 
+            crypto_hash
+        ) VALUES
+            (1, true, '192.168.1.1', 25, 72, 'A', 1000.5, 'USD', 'Test record 1', '2023-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000000Z', 200.00, '123e4567-e89b-12d3-a456-426614174000', 123456789012345, '0x7fffffffffffffffffffffffffffffff'),
+            (2, false, NULL, 30, 68, 'B', 1500.3, 'EUR', 'Test record 2', NULL, '2023-01-02T00:00:00.000000Z', 300.00, '123e4567-e89b-12d3-a456-426614174001', 987654321098765, NULL),
+            (3, NULL, '10.0.0.1', 35, NULL, 'C', NULL, 'JPY', 'Test record 3', '2023-01-03T00:00:00.000Z', '2023-01-03T00:00:00.000000Z', NULL, '123e4567-e89b-12d3-a456-426614174002', NULL, '0x1fffffffffffffffffffffffffffffff');
+    ''')
+
+def load_trips_table(qdb):
     qdb.http_sql_query('''
         CREATE TABLE 'trips' (
             cab_type SYMBOL capacity 256 CACHE,
@@ -138,7 +181,8 @@ class TestModule(unittest.TestCase):
             QUESTDB_INSTALL_PATH, auth=False, wrap_tls=True, http=True)
         cls.qdb.start()
 
-        load_test_data(cls.qdb)
+        load_all_types_table(cls.qdb)
+        load_trips_table(cls.qdb)
 
     @classmethod
     def tearDownClass(cls):
@@ -158,7 +202,7 @@ class TestModule(unittest.TestCase):
 
     def test_count_pandas(self):
         act = self.pandas_query('SELECT count() FROM trips')
-        exp = pd.DataFrame({'count': pd.Series([10000], dtype='int64')})
+        exp = pd.DataFrame({'count': pd.Series([10000], dtype='Int64')})
         assert_frame_equal(act, exp, check_column_type=True)
 
     def test_count_numpy(self):
@@ -171,10 +215,10 @@ class TestModule(unittest.TestCase):
         exp = pd.DataFrame({
             'cab_type': pd.Series([
                 'yellow', 'yellow', 'green', 'yellow', 'yellow'],
-                dtype='object'),
+                dtype='string'),
             'vendor_id': pd.Series([
                 'VTS', 'VTS', 'VTS', 'CMT', 'VTS'],
-                dtype='object'),
+                dtype='string'),
             'pickup_datetime': pd.Series(pd.to_datetime([
                 '2016-01-01T00:00:00.000000',
                 '2016-01-01T00:00:00.000000',
@@ -195,7 +239,7 @@ class TestModule(unittest.TestCase):
                 'Standard rate',
                 'Standard rate',
                 'Standard rate'],
-                dtype='object'),
+                dtype='string'),
             'pickup_latitude': pd.Series([
                 -73.9940567, -73.9801178, -73.92303467, -73.97942352, -73.99834442],
                 dtype='float'),
@@ -210,7 +254,7 @@ class TestModule(unittest.TestCase):
                 dtype='float'),
             'passenger_count': pd.Series([
                 2, 2, 1, 1, 1],
-                dtype='int32'),
+                dtype='Int32'),
             'trip_distance': pd.Series([
                 7.45, 5.52, 0.34, 1.2, 3.21],
                 dtype='float'),
@@ -243,16 +287,16 @@ class TestModule(unittest.TestCase):
                 dtype='float'),
             'payment_type': pd.Series([
                 'Cash', 'Cash', 'Cash', 'Cash', 'Cash'],
-                dtype='object'),
+                dtype='string'),
             'trip_type': pd.Series([
                 'na', 'na', 'na', 'na', 'na'],
-                dtype='object'),
+                dtype='string'),
             'pickup_location_id': pd.Series([
                 0, 0, 0, 0, 0],
-                dtype='int32'),
+                dtype='Int32'),
             'dropoff_location_id': pd.Series([
                 0, 0, 0, 0, 0],
-                dtype='int32')})
+                dtype='Int32')})
         assert_frame_equal(act, exp, check_column_type=True)
 
     def test_head_numpy(self):
@@ -365,6 +409,33 @@ class TestModule(unittest.TestCase):
 
     def test_chunked_pandas(self):
         self._test_chunked_pandas()
+
+    def test_almost_all_types(self):
+        act = self.pandas_query('SELECT * FROM almost_all_types')
+        schema = {
+            name: str(val)
+            for name, val
+            in act.dtypes.to_dict().items()}
+        exp_schema = {
+            'id': 'Int32',
+            'active': 'bool',
+            'ip_address': 'string',
+            'age': 'int8',
+            'temperature': 'int16',
+            'grade': 'string',
+            'account_balance': 'float32',
+            'currency_symbol': 'string',
+            'description': 'string',
+            'record_date': 'datetime64[ns]',
+            'event_timestamp': 'datetime64[ns]',
+            'revenue': 'float64',
+            'user_uuid': 'string',
+            'long_number': 'Int64',
+            'crypto_hash': 'string',
+            }
+        self.assertEqual(exp_schema.keys(), schema.keys())
+        for key in exp_schema:
+            self.assertEqual((key, exp_schema[key]), (key, schema[key]))
 
 
 if __name__ == '__main__':
