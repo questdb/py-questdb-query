@@ -32,11 +32,11 @@ jobs:
 
     - name: Install and Configure Poetry Path
       run: |
-        (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+        curl -sSL https://install.python-poetry.org | python -
         if ($env:OS -eq 'Windows_NT') {
-          $env:PATH += ";$env:USERPROFILE\.poetry\bin"
+          echo "$env:USERPROFILE\.poetry\bin" >> $GITHUB_PATH
         } else {
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.poetry/bin" >> $GITHUB_PATH
         }
       shell: pwsh
 
