@@ -1,3 +1,5 @@
+import re
+
 class Endpoint:
     """
     HTTP connection parameters into QuestDB
@@ -21,6 +23,9 @@ class Endpoint:
             raise ValueError('Must provide both username and password or neither')
         if self.token and self.username:
             raise ValueError('Cannot use token with username and password')
+        if token and not re.match(r'^[A-Za-z0-9-._~+/]+=*$', token):
+            # https://datatracker.ietf.org/doc/html/rfc6750#section-2.1
+            raise ValueError("Invalid characters in token")
 
     @property
     def url(self):

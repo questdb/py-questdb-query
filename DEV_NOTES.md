@@ -21,6 +21,12 @@ Tweak the `pyproject.toml` file (if needed) and then run:
 poetry update
 ```
 
+## Running a single test
+
+```shell
+poetry run python -m unittest tests.tests.TestModule.test_basic_aut
+```
+
 ## Cutting a release
 
 ```shell

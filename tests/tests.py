@@ -15,6 +15,13 @@ from questdb_query import Endpoint
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
+try:
+    # When running a single test.
+    from .mock_server import HttpServer
+except ImportError:
+    # When discovered by unittest.
+    from mock_server import HttpServer
+
 # Import the code we can use to download and run a test QuestDB instance
 sys.path.append(str(
     Path(__file__).resolve().parent.parent /
@@ -172,7 +179,6 @@ def load_trips_table(qdb):
 
 
 class TestModule(unittest.IsolatedAsyncioTestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.qdb = None
@@ -455,6 +461,56 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
         act = await self.a_numpy_query('SELECT count() FROM trips')
         exp = {'count': np.array([10000], dtype='int64')}
         self.assertEqual(act, exp)
+
+    def test_basic_auth(self):
+        endpoint = Endpoint(self.qdb.host, self.qdb.http_server_port, auth=AUTH)
+        act = qdbq_s.pandas_query('SELECT count() FROM trips', endpoint=endpoint)
+        exp = pd.DataFrame({'count': pd.Series([10000], dtype='Int64')})
+        assert_frame_equal(act, exp, check_column_type=True)
+
+    def _do_auth_test(self, exp_auth_header, username=None, password=None, token=None):
+        with HttpServer() as server:
+            server.responses.append((
+                0,
+                200,
+                'application/json',
+                (
+                    b'{"columns": [{"name": "count", "type": "LONG"}], ' +
+                    b'"count": 1, "dataset": [[10000]], "query": "SELECT count() ' +
+                    b'FROM trips", "timestamp": -1}'
+                )))
+            server.responses.append((
+                0,
+                200,
+                'text/csv',
+                b'"count"\r\n10000\r\n'
+                ))
+
+            endpoint = Endpoint(
+                'localhost',
+                server.port,
+                username=username,
+                password=password,
+                token=token)
+            act = qdbq_s.pandas_query('SELECT count() FROM trips', endpoint=endpoint)
+            exp = pd.DataFrame({'count': pd.Series([10000], dtype='Int64')})
+            assert_frame_equal(act, exp, check_column_type=True)
+
+        auth0 = server.headers[0]['Authorization']
+        auth1 = server.headers[1]['Authorization']
+        self.assertEqual(auth0, auth1)
+        self.assertEqual(auth0, exp_auth_header)
+
+    def test_basic_auth(self):
+        self._do_auth_test(
+            'Basic YWRtaW46cXVlc3Q=',
+            username='admin',
+            password='quest')
+        
+    def test_token_auth(self):
+        self._do_auth_test(
+            'Bearer 1234567890',
+            token='1234567890')
 
 
 if __name__ == '__main__':

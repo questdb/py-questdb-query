@@ -22,42 +22,10 @@ from .pandas_util import pandas_to_numpy
 from .stats import Stats
 
 
-class TokenAuth(namedtuple("TokenAuth", ["token"])):
-    """Http token (bearer) authentication helper."""
-
-    def __new__(
-        cls, token: str, encoding: str = "utf-8"
-    ) -> "TokenAuth":
-        if token is None:
-            raise ValueError("None is not allowed as token value")
-
-        # https://datatracker.ietf.org/doc/html/rfc6750#section-2.1
-        if not re.match(r'^[A-Za-z0-9-._~+/]+=*$', token):
-            raise ValueError("Invalid characters in token")
-
-        return super().__new__(cls, token)
-
-    @classmethod
-    def decode(cls, auth_header: str) -> "TokenAuth":
-        """Create a TokenAuth object from an Authorization HTTP header."""
-        raise RuntimeError("Not yet implemented: TokenAuth does not support decoding from header")
-
-    @classmethod
-    def from_url(cls, url, *, encoding: str = "latin1") -> Optional["TokenAuth"]:
-        """Create BasicAuth from url."""
-        raise RuntimeError("Not yet implemented: TokenAuth does not support creation from URL") 
-
-    def encode(self) -> str:
-        """Encode credentials."""
-        return "Bearer " + self.token
-
-
 def _new_session(endpoint, timeout: int = None):
     auth = None
     if endpoint.username:
         auth = aiohttp.BasicAuth(endpoint.username, endpoint.password)
-    elif endpoint.token:
-        auth = TokenAuth(endpoint.token)
     timeout = aiohttp.ClientTimeout(total=timeout) \
         or aiohttp.ClientTimeout(total=300)
     return aiohttp.ClientSession(
@@ -66,8 +34,17 @@ def _new_session(endpoint, timeout: int = None):
         timeout=timeout)
 
 
-async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: str) -> tuple[
-    list[tuple[str, (str, object)]], int]:
+def _auth_headers(endpoint: Endpoint) -> dict[str, str]:
+    if endpoint.token:
+        return {'Authorization': f'Bearer {endpoint.token}'}
+    return None
+
+
+async def _pre_query(
+        session: aiohttp.ClientSession,
+        endpoint: Endpoint,
+        query: str
+        ) -> tuple[list[tuple[str, (str, object)]], int]:
     url = f'{endpoint.url}/exec'
     params = [('query', query), ('count', 'true'), ('limit', '0')]
     dtypes_map = {
@@ -96,7 +73,10 @@ async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: 
             return (ty, 'string')
         return dtypes_map[ty]
 
-    async with session.get(url=url, params=params) as resp:
+    async with session.get(
+            url=url,
+            params=params,
+            headers=_auth_headers(endpoint)) as resp:
         result = await resp.json()
         if resp.status != 200:
             raise QueryError.from_json(result)
@@ -118,7 +98,10 @@ async def _query_pandas(
     params = [
         ('query', query),
         ('limit', f'{limit_range[0]},{limit_range[1]}')]
-    async with session.get(url=url, params=params) as resp:
+    async with session.get(
+            url=url,
+            params=params,
+            headers=_auth_headers(endpoint)) as resp:
         if resp.status != 200:
             raise QueryError.from_json(await resp.json())
         buf = await resp.content.read()
