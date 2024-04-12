@@ -18,6 +18,7 @@ jobs:
     - uses: actions/checkout@v3
       with:
         submodules: true
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
@@ -32,12 +33,19 @@ jobs:
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python -
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Configure Poetry Path
+      shell: bash
+      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      if: runner.os != 'Windows'
+
+    - name: Configure Poetry Path (Windows)
+      shell: pwsh
+      run: echo "$env:USERPROFILE\.poetry\bin" >> $GITHUB_ENV
+      if: runner.os == 'Windows'
 
     - name: Configure Poetry
-      run: |
-        echo "$HOME/.local/bin" >> $GITHUB_PATH
-        poetry config virtualenvs.create false
+      run: poetry config virtualenvs.create false
 
     - name: Install dependencies
       run: poetry install --no-root
