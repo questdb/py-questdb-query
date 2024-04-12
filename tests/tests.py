@@ -1,4 +1,6 @@
 import sys
+
+import numpy as np
 sys.dont_write_bytecode = True
 
 import os
@@ -8,7 +10,9 @@ import io
 import http.client
 from urllib import request, parse
 
-from questdb_query import numpy_query
+from questdb_query import numpy_query, pandas_query, Endpoint
+import pandas as pd
+from pandas.testing import assert_frame_equal
 
 # Import the code we can use to download and run a test QuestDB instance
 sys.path.append(str(
@@ -19,7 +23,7 @@ from fixture import \
     retry
 
 
-QUESTDB_VERSION = '7.3.7'
+QUESTDB_VERSION = '7.4.0'
 QUESTDB_INSTALL_PATH = None
 
 
@@ -141,8 +145,26 @@ class TestModule(unittest.TestCase):
         if cls.qdb:
             cls.qdb.stop()
 
-    def test_function_to_test(self):
-        self.assertEqual(1, 1)
+    def _get_endpoint(self):
+        return Endpoint(self.qdb.host, self.qdb.http_server_port)
+
+    def numpy_query(self, query, *, chunks=1):
+        endpoint = self._get_endpoint()
+        return numpy_query(query, endpoint=endpoint, chunks=chunks)
+    
+    def pandas_query(self, query, *, chunks=1):
+        endpoint = self._get_endpoint()
+        return pandas_query(query, endpoint=endpoint, chunks=chunks)
+
+    def test_count_pandas(self):
+        act = self.pandas_query('SELECT count() FROM trips')
+        exp = pd.DataFrame({'count': pd.Series([10000], dtype='int64')})
+        assert_frame_equal(act, exp, check_column_type=True)
+
+    def test_count_numpy(self):
+        act = self.numpy_query('SELECT count() FROM trips')
+        exp = {'count': np.array([10000])}
+        self.assertEqual(act, exp)
 
 if __name__ == '__main__':
     unittest.main()

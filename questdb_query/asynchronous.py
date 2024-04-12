@@ -5,9 +5,12 @@ Async functions to query QuestDB over HTTP(S) via CSV into Pandas or Numpy.
 __all__ = ['pandas_query', 'numpy_query']
 
 import asyncio
+from collections import namedtuple
 import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+import re
+from typing import Optional
 
 import aiohttp
 import numpy as np
@@ -19,14 +22,42 @@ from .pandas_util import pandas_to_numpy
 from .stats import Stats
 
 
+class TokenAuth(namedtuple("TokenAuth", ["token"])):
+    """Http token (bearer) authentication helper."""
+
+    def __new__(
+        cls, token: str, encoding: str = "utf-8"
+    ) -> "TokenAuth":
+        if token is None:
+            raise ValueError("None is not allowed as token value")
+
+        # https://datatracker.ietf.org/doc/html/rfc6750#section-2.1
+        if not re.match(r'^[A-Za-z0-9-._~+/]+=*$', token):
+            raise ValueError("Invalid characters in token")
+
+        return super().__new__(cls, token)
+
+    @classmethod
+    def decode(cls, auth_header: str) -> "TokenAuth":
+        """Create a TokenAuth object from an Authorization HTTP header."""
+        raise RuntimeError("Not yet implemented: TokenAuth does not support decoding from header")
+
+    @classmethod
+    def from_url(cls, url, *, encoding: str = "latin1") -> Optional["TokenAuth"]:
+        """Create BasicAuth from url."""
+        raise RuntimeError("Not yet implemented: TokenAuth does not support creation from URL") 
+
+    def encode(self) -> str:
+        """Encode credentials."""
+        return "Bearer " + self.token
+
+
 def _new_session(endpoint):
     auth = None
-    if (endpoint.password is not None) and (endpoint.username is None):
-        raise ValueError('Password specified without username')
-    if endpoint.username is not None:
-        if endpoint.password is None:
-            raise ValueError('Username specified without password')
+    if endpoint.username:
         auth = aiohttp.BasicAuth(endpoint.username, endpoint.password)
+    elif endpoint.token:
+        auth = TokenAuth(endpoint.token)
     return aiohttp.ClientSession(auth=auth, read_bufsize=4 * 1024 * 1024)
 
 
