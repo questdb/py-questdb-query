@@ -12,10 +12,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11', '3.12']
-        os: [
-          # ubuntu-latest,
-          # macos-latest,
-          windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
     - uses: actions/checkout@v3
@@ -33,15 +30,14 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
-    - name: Install and Configure Poetry Path
-      run: |
-        curl -sSL https://install.python-poetry.org | python -
-        if ($env:OS -eq 'Windows_NT') {
-          echo "$env:USERPROFILE\.poetry\bin" >> $GITHUB_PATH
-        } else {
-          echo "$HOME/.poetry/bin" >> $GITHUB_PATH
-        }
-      shell: pwsh
+    - name: Install pipx
+      run: python -m pip install pipx
+
+    - name: Ensure pipx uses the right Python
+      run: python -m pipx ensurepath
+
+    - name: Install Poetry with pipx
+      run: pipx install poetry
 
     - name: Configure Poetry
       run: poetry config virtualenvs.create false
