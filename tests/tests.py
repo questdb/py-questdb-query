@@ -511,6 +511,32 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
         self._do_auth_test(
             'Bearer 1234567890',
             token='1234567890')
+        
+    def test_timeout(self):
+        with HttpServer() as server:
+            server.responses.append((
+                2000,  # 2 seconds
+                200,
+                'application/json',
+                (
+                    b'{"columns": [{"name": "count", "type": "LONG"}], ' +
+                    b'"count": 1, "dataset": [[10000]], "query": "SELECT count() ' +
+                    b'FROM trips", "timestamp": -1}'
+                )))
+            server.responses.append((
+                2000,  # 2 seconds
+                200,
+                'text/csv',
+                b'"count"\r\n10000\r\n'
+                ))
+            
+            endpoint = Endpoint('localhost', server.port)
+            import asyncio
+            with self.assertRaises(asyncio.TimeoutError):
+                qdbq_s.pandas_query(
+                    'SELECT count() FROM trips',
+                    endpoint=endpoint,
+                    timeout=1)
 
 
 if __name__ == '__main__':

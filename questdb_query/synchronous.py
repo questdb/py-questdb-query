@@ -30,9 +30,9 @@ def pandas_query(
     except RuntimeError:
         loop = None
     if loop is None:
-        return asyncio.run(a.pandas_query(query, endpoint, chunks))
+        return asyncio.run(a.pandas_query(query, endpoint, chunks, timeout))
     else:
-        return loop.run_until_complete(a.pandas_query(query, endpoint, chunks))
+        return loop.run_until_complete(a.pandas_query(query, endpoint, chunks, timeout))
 
 
 def numpy_query(
@@ -47,5 +47,5 @@ def numpy_query(
 
     :param timeout: The timeout in seconds for the query, defaults to None (300 seconds).
     """
-    df = pandas_query(query, endpoint, chunks)
+    df = pandas_query(query, endpoint, chunks, timeout)
     return pandas_to_numpy(df)
