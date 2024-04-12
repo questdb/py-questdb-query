@@ -5,12 +5,9 @@ Async functions to query QuestDB over HTTP(S) via CSV into Pandas or Numpy.
 __all__ = ['pandas_query', 'numpy_query']
 
 import asyncio
-from collections import namedtuple
 import time
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-import re
-from typing import Optional
 
 import aiohttp
 import numpy as np
