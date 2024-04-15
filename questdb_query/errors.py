@@ -9,7 +9,11 @@ class QueryError(Exception):
 
     @classmethod
     def from_json(cls, json: dict):
+        message = json.get('error')
+        if not message:
+            message = json.get('message')
         return cls(
-            message=json['error'],
-            query=json['query'],
+            message=message,
+            query=json.get('query'),
             position=json.get('position'))
+

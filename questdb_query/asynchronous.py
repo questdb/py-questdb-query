@@ -19,40 +19,66 @@ from .pandas_util import pandas_to_numpy
 from .stats import Stats
 
 
-def _new_session(endpoint):
+def _new_session(endpoint, timeout: int = None):
     auth = None
-    if (endpoint.password is not None) and (endpoint.username is None):
-        raise ValueError('Password specified without username')
-    if endpoint.username is not None:
-        if endpoint.password is None:
-            raise ValueError('Username specified without password')
+    if endpoint.username:
         auth = aiohttp.BasicAuth(endpoint.username, endpoint.password)
-    return aiohttp.ClientSession(auth=auth, read_bufsize=4 * 1024 * 1024)
+    timeout = aiohttp.ClientTimeout(total=timeout) \
+        or aiohttp.ClientTimeout(total=300)
+    return aiohttp.ClientSession(
+        auth=auth,
+        read_bufsize=4 * 1024 * 1024,
+        timeout=timeout)
 
 
-async def _pre_query(session: aiohttp.ClientSession, endpoint: Endpoint, query: str) -> tuple[
-    list[tuple[str, (str, object)]], int]:
+def _auth_headers(endpoint: Endpoint) -> dict[str, str]:
+    if endpoint.token:
+        return {'Authorization': f'Bearer {endpoint.token}'}
+    return None
+
+
+async def _pre_query(
+        session: aiohttp.ClientSession,
+        endpoint: Endpoint,
+        query: str
+        ) -> tuple[list[tuple[str, (str, object)]], int]:
     url = f'{endpoint.url}/exec'
     params = [('query', query), ('count', 'true'), ('limit', '0')]
     dtypes_map = {
-        'STRING': ('STRING', None),
-        'SYMBOL': ('SYMBOL', None),
+        'STRING': ('STRING', 'string'),
+        'SYMBOL': ('SYMBOL', 'string'),
         'SHORT': ('SHORT', 'int16'),
         'BYTE': ('BYTE', 'int8'),
         'BOOLEAN': ('BOOLEAN', 'bool'),
-        'INT': ('INT', 'int32'),
-        'LONG': ('LONG', 'int64'),
+        'INT': ('INT', 'Int32'),
+        'LONG': ('LONG', 'Int64'),
         'DOUBLE': ('DOUBLE', 'float64'),
         'FLOAT': ('FLOAT', 'float32'),
-        'CHAR': ('CHAR', None),
-        'TIMESTAMP': ('TIMESTAMP', None)
+        'CHAR': ('CHAR', 'string'),
+        'TIMESTAMP': ('TIMESTAMP', None),
+        'IPV4': ('IPV4', 'string'),
+        'BYTE': ('BYTE', 'int8'),
+        'DATE': ('DATE', None),
+        'UUID': ('UUID', 'string'),
+        'BINARY': ('BINARY', 'string'),
+        'LONG256': ('LONG256', 'string'),
     }
-    async with session.get(url=url, params=params) as resp:
+
+    def get_dtype(col):
+        ty = col['type'].upper()
+        if ty.startswith('GEOHASH'):
+            return (ty, 'string')
+        return dtypes_map[ty]
+
+    async with session.get(
+            url=url,
+            params=params,
+            headers=_auth_headers(endpoint)) as resp:
         result = await resp.json()
         if resp.status != 200:
             raise QueryError.from_json(result)
         columns = [
-            (col['name'], dtypes_map[col['type'].upper()])
+            (col['name'], get_dtype(col))
             for col in result['columns']]
         count = result['count']
         return columns, count
@@ -69,7 +95,10 @@ async def _query_pandas(
     params = [
         ('query', query),
         ('limit', f'{limit_range[0]},{limit_range[1]}')]
-    async with session.get(url=url, params=params) as resp:
+    async with session.get(
+            url=url,
+            params=params,
+            headers=_auth_headers(endpoint)) as resp:
         if resp.status != 200:
             raise QueryError.from_json(await resp.json())
         buf = await resp.content.read()
@@ -87,7 +116,7 @@ async def _query_pandas(
                 col_name = col_schema[0]
                 col_type = col_schema[1][0]
                 try:
-                    if col_type == 'TIMESTAMP':
+                    if col_type in ('TIMESTAMP', 'DATE'):
                         series = df[col_name]
                         # Drop the UTC timezone during conversion.
                         # This allows `.to_numpy()` on the series to
@@ -95,6 +124,7 @@ async def _query_pandas(
                         series = pd.to_datetime(series).dt.tz_convert(None)
                         df[col_name] = series
                 except Exception as e:
+                    print(df[col_name])
                     raise ValueError(
                         f'Failed to convert column {col_name} to type {col_type}: {e}\n{series}')
             return df
@@ -104,15 +134,22 @@ async def _query_pandas(
         return df, download_bytes
 
 
-async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -> pd.DataFrame:
+async def pandas_query(
+        query: str,
+        endpoint: Endpoint = None,
+        chunks: int = 1,
+        timeout: int = None) -> pd.DataFrame:
     """
     Query QuestDB via CSV to a Pandas DataFrame.
+
+    :param timeout: The timeout in seconds for the query, defaults to None (300 seconds).
     """
     endpoint = endpoint or Endpoint()
     start_ts = time.perf_counter_ns()
     with ThreadPoolExecutor(max_workers=chunks) as executor:
-        async with _new_session(endpoint) as session:
+        async with _new_session(endpoint, timeout) as session:
             result_schema, row_count = await _pre_query(session, endpoint, query)
+            chunks = max(min(chunks, row_count), 1)
             rows_per_spawn = row_count // chunks
             limit_ranges = [
                 (
@@ -127,16 +164,25 @@ async def pandas_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -
             results = await asyncio.gather(*tasks)
             sub_dataframes = [result[0] for result in results]
             df = pd.concat(sub_dataframes)
+            if chunks > 1:
+                df.reset_index(drop=True, inplace=True)
             end_ts = time.perf_counter_ns()
             total_downloaded = sum(result[1] for result in results)
             df.query_stats = Stats(end_ts - start_ts, row_count, total_downloaded)
             return df
 
 
-async def numpy_query(query: str, endpoint: Endpoint = None, chunks: int = 1) -> dict[str, np.array]:
+async def numpy_query(
+        query: str,
+        endpoint: Endpoint = None,
+        chunks: int = 1,
+        timeout: int = None
+        ) -> dict[str, np.array]:
     """
     Query and obtain the result as a dict of columns.
     Each column is a numpy array.
+
+    :param timeout: The timeout in seconds for the query, defaults to None (300 seconds).
     """
-    df = await pandas_query(query, endpoint, chunks)
+    df = await pandas_query(query, endpoint, chunks, timeout)
     return pandas_to_numpy(df)
