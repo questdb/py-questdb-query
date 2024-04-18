@@ -17,10 +17,115 @@ To uninstall the library, you can use the command:
 python3 -m pip uninstall questdb_query
 ```
 
-## Basic Usage, querying into Numpy
+## Basic Usage, querying into Pandas
 
 Once installed, you can use the library to query a QuestDB database. Here's an example that demonstrates how to query
-CPU utilization data using the library against a database running on `localhost`.
+CPU utilization data using the library against a database running on `localhost` on the default HTTP port (9000).
+
+```python
+from questdb_query import pandas_query
+
+df = pandas_query('select * from cpu limit 1000')
+```
+
+This allows you, for example, to pre-aggregate results:
+
+```python
+>>> df = df[['region', 'usage_user', 'usage_nice']].groupby('region').mean()
+>>> df
+                usage_user  usage_nice
+region                                
+ap-northeast-1    8.163766    6.492334
+ap-southeast-1    6.511215    7.341863
+ap-southeast-2    6.788770    6.257839
+eu-central-1      7.392642    6.416479
+eu-west-1         7.213417    7.185956
+sa-east-1         7.143568    5.925026
+us-east-1         7.620643    7.243553
+us-west-1         6.286770    6.531977
+us-west-2         6.228692    6.439672
+```
+
+You can then switch over to numpy with a simple and fast conversion:
+
+```python
+>>> from questdb_query import pandas_to_numpy
+>>> np_arrs = pandas_to_numpy(df)
+>>> np_arrs
+{'usage_user': array([8.16376556, 6.51121543, 6.78876964, 7.3926419 , 7.21341716,
+       7.14356839, 7.62064304, 6.28677006, 6.22869169]), 'usage_nice': array([6.49233392, 7.34186348, 6.25783903, 6.41647863, 7.18595643,
+       5.92502642, 7.24355328, 6.53197733, 6.43967247]), 'region': array(['ap-northeast-1', 'ap-southeast-1', 'ap-southeast-2',
+       'eu-central-1', 'eu-west-1', 'sa-east-1', 'us-east-1', 'us-west-1',
+       'us-west-2'], dtype=object)}
+```
+
+## Querying a remote database
+
+If your database is running on a remote host, specify an endpoint:
+
+```python
+from questdb_query import pandas_query, Endpoint
+
+endpoint = Endpoint(host='your.hostname.com', port=22453, https=True, username='user', password='pass')
+
+np_arrs = numpy_query('select * from cpu limit 10', endpoint)
+```
+
+Note how the example above enables HTTPS and specifies a username and password for authentication.
+
+The port is optional and defaults to 9000 for HTTP and 443 for HTTPS.
+
+Alternatively, if the server is set up with token-based authentication you can use the `token` parameter:
+
+```python
+endpoint = Endpoint(host='your.hostname.com', https=True, token='your_token')
+```
+
+## Chunks: Query Parallelism
+
+You can sometimes improve performance by splitting up a large query into smaller ones, running them in parallel,
+and joining the results together. This is especially useful if you have multiple CPUs available.
+
+The `numpy_query` function can do this automatically for you, by specifying the `chunks` parameter.
+
+The example below, splits up the query into 6 parallel chunks.
+
+```python
+from questdb_query import numpy_query
+
+np_arrs = numpy_query('select * from cpu', chunks=6)
+```
+
+The speed-up of splitting up a query into smaller ones is highly query-dependent and we recommend you experiment and
+benchmark. Mostly due to Python library limitations, not all parts of the query can be parallelized, so whilst you may
+see great benefits in going from 1 chunk (the default) to 8, the improvement going from 8 to 16 might be marginal. 
+
+_Read on for more details on benchmarking: This is covered later in this README page._
+
+> :warning: The `chunks > 1` parameter parallelizes queries. If the table(s) queried contain fast-moving data the
+> results may be inconsistent as each chunk's query would be started at slightly different times.
+>
+> To avoid consistency issues formulate the query so that it only queries data that is not changing.
+> You can do this, for example, by specifying a `timestamp` range in the `WHERE` clause.
+
+## Querying into Numpy
+
+You can also query directly into a dictionary of Numpy arrays.
+
+Notice that Numpy's datatypes are more limited than Panadas, specifically in the
+handling of null values.
+
+This is a simple shorthand for querying into Pandas and then converting to Numpy:
+
+```python
+def numpy_query(query: str, endpoint: Endpoint = None,
+        chunks: int = 1, timeout: int = None) -> dict[str, np.array]:
+    df = pandas_query(query, endpoint, chunks, timeout)
+    return pandas_to_numpy(df)
+```
+
+To use it, pass the query string to the `numpy_query` function, along with the
+same optional parameters as the `pandas_query` function.
 
 ```python
 from questdb_query import numpy_query
@@ -57,91 +162,6 @@ do this by accessing the `numpy` columns:
 4.5700692045031985
 ```
 
-## Querying a remote database
-
-If your database is running on a remote host, specify an endpoint:
-
-```python
-from questdb_query import numpy_query, Endpoint
-
-endpoint = Endpoint(host='your.hostname.com', https=True, username='user', password='pass')
-
-np_arrs = numpy_query('select * from cpu limit 10', endpoint)
-```
-
-Note how the example above enables HTTPS and specifies a username and password for authentication.
-
-
-## Chunks: Query Parallelism
-
-You can sometimes improve performance by splitting up a large query into smaller ones, running them in parallel,
-and joining the results together. This is especially useful if you have multiple CPUs available.
-
-The `numpy_query` function can do this automatically for you, by specifying the `chunks` parameter.
-
-The example below, splits up the query into 6 parallel chunks.
-
-```python
-from questdb_query import numpy_query
-
-np_arrs = numpy_query('select * from cpu', chunks=6)
-```
-
-The speed-up of splitting up a query into smaller ones is highly query-dependent and we recommend you experiment and
-benchmark. Mostly due to Python library limitations, not all parts of the query can be parallelized, so whilst you may
-see great benefits in going from 1 chunk (the default) to 8, the improvement going from 8 to 16 might be marginal. 
-
-_Read on for more details on benchmarking: This is covered later in this README page._
-
-> :warning: The `chunks > 1` parameter parallelizes queries. If the table(s) queried contain fast-moving data the
-> results may be inconsistent as each chunk's query would be started at slightly different times.
->
-> To avoid consistency issues formulate the query so that it only queries data that is not changing.
-> You can do this, for example, by specifying a `timestamp` range in the `WHERE` clause.
-
-## Querying into Pandas
-
-You can also query into Pandas:
-
-```python
-from questdb_query import pandas_query, Endpoint
-
-endpoint = Endpoint(host='your.hostname.com', https=True, username='user', password='pass')
-
-df = pandas_query('select * from cpu limit 1000', endpoint)
-```
-
-This allows you, for example, to pre-aggregate results:
-
-```python
->>> df = df[['region', 'usage_user', 'usage_nice']].groupby('region').mean()
->>> df
-                usage_user  usage_nice
-region                                
-ap-northeast-1    8.163766    6.492334
-ap-southeast-1    6.511215    7.341863
-ap-southeast-2    6.788770    6.257839
-eu-central-1      7.392642    6.416479
-eu-west-1         7.213417    7.185956
-sa-east-1         7.143568    5.925026
-us-east-1         7.620643    7.243553
-us-west-1         6.286770    6.531977
-us-west-2         6.228692    6.439672
-```
-
-You can then switch over to numpy with a simple and fast conversion:
-
-```python
->>> from questdb_query import pandas_to_numpy
->>> np_arrs = pandas_to_numpy(df)
->>> np_arrs
-{'usage_user': array([8.16376556, 6.51121543, 6.78876964, 7.3926419 , 7.21341716,
-       7.14356839, 7.62064304, 6.28677006, 6.22869169]), 'usage_nice': array([6.49233392, 7.34186348, 6.25783903, 6.41647863, 7.18595643,
-       5.92502642, 7.24355328, 6.53197733, 6.43967247]), 'region': array(['ap-northeast-1', 'ap-southeast-1', 'ap-southeast-2',
-       'eu-central-1', 'eu-west-1', 'sa-east-1', 'us-east-1', 'us-west-1',
-       'us-west-2'], dtype=object)}
-```
-
 ## Benchmarking
 
 ### From code
@@ -149,9 +169,9 @@ You can then switch over to numpy with a simple and fast conversion:
 Each query result also contains a `Stats` object with the performance summary which you can print.
 
 ```python
->>> from questdb_query import numpy_query
->>> np_arrs = numpy_query('select * from cpu', chunks=8)
->>> print(np_arrs.query_stats)
+>>> from questdb_query import pandas_query
+>>> df = pandas_query('select * from cpu', chunks=8)
+>>> print(df.query_stats)
 Duration: 2.631s
 Millions of lines: 5.000
 Millions of lines/s: 1.901
@@ -162,9 +182,9 @@ MiB/s: 506.381
 You can also extract individual fields:
 
 ```python
->>> np_arrs.query_stats
+>>> df.query_stats
 Stats(duration_s=2.630711865, line_count=5000000, byte_count=1396853875, throughput_mbs=506.3814407360216, throughput_mlps=1.900626239810569)
->>> np_arrs.query_stats.throughput_mlps
+>>> df.query_stats.throughput_mlps
 1.900626239810569
 ```
 
