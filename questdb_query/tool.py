@@ -19,6 +19,7 @@ def _parse_args():
     parser.add_argument('--https', action='store_true')
     parser.add_argument('--username', type=str)
     parser.add_argument('--password', type=str)
+    parser.add_argument('--token', type=str)
     parser.add_argument('--chunks', type=int, default=1)
     parser.add_argument('query', type=str)
     return parser.parse_args()
@@ -30,7 +31,8 @@ def main(args):
         port=args.port,
         https=args.https,
         username=args.username,
-        password=args.password)
+        password=args.password,
+        token=args.token)
     df = pandas_query(args.query, endpoint, args.chunks)
     print(df)
     print()

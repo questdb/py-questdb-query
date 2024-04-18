@@ -125,9 +125,10 @@ def load_all_types_table(qdb):
             long_number, 
             crypto_hash
         ) VALUES
-            (1, true, '192.168.1.1', 25, 72, 'A', 1000.5, 'USD', 'Test record 1', '2023-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000000Z', 200.00, '123e4567-e89b-12d3-a456-426614174000', 123456789012345, '0x7fffffffffffffffffffffffffffffff'),
-            (2, false, NULL, 30, 68, 'B', 1500.3, 'EUR', 'Test record 2', NULL, '2023-01-02T00:00:00.000000Z', 300.00, '123e4567-e89b-12d3-a456-426614174001', 987654321098765, NULL),
-            (3, NULL, '10.0.0.1', 35, NULL, 'C', NULL, 'JPY', 'Test record 3', '2023-01-03T00:00:00.000Z', '2023-01-03T00:00:00.000000Z', NULL, '123e4567-e89b-12d3-a456-426614174002', NULL, '0x1fffffffffffffffffffffffffffffff');
+         -- id  active ip_address    age temp  gra  acc_bal  curr   description      record_date                 event_timestamp                revenue user_uuid                               long_number      crypto_hash
+            (1, true,  '192.168.1.1', 25, 72,  'A', 1000.5,  'USD', 'Test record 1', '2023-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000000Z', 200.00, '123e4567-e89b-12d3-a456-426614174000', 123456789012345, '0x7fffffffffffffffffffffffffffffff'),
+            (2, false, NULL,          30, 68,  'B', 1500.25, 'EUR', NULL,            NULL,                       '2023-01-02T00:00:00.000000Z', 300.00, '123e4567-e89b-12d3-a456-426614174001', 987654321098765, NULL),
+            (3, NULL,  '10.0.0.1',    35, -40, 'C', NULL,    'JPY', 'Test record 3', '2023-01-03T00:00:00.000Z', '2023-01-03T00:00:00.000000Z', NULL,   '123e4567-e89b-12d3-a456-426614174002', NULL,            '0x1fffffffffffffffffffffffffffffff');
     ''')
 
 def load_trips_table(qdb):
@@ -451,6 +452,71 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(exp_schema.keys(), schema.keys())
         for key in exp_schema:
             self.assertEqual((key, exp_schema[key]), (key, schema[key]))
+
+        exp_df = pd.DataFrame({
+            'id': pd.Series([1, 2, 3], dtype='Int32'),
+            'active': pd.Series([True, False, None], dtype='bool'),
+            'ip_address': pd.Series(['192.168.1.1', None, '10.0.0.1'], dtype='string'),
+            'age': pd.Series([25, 30, 35], dtype='int8'),
+            'temperature': pd.Series([72, 68, -40], dtype='int16'),
+            'grade': pd.Series(['A', 'B', 'C'], dtype='string'),
+            'account_balance': pd.Series([1000.5, 1500.25, None], dtype='float32'),
+            'currency_symbol': pd.Series(['USD', 'EUR', 'JPY'], dtype='string'),
+            'description': pd.Series(['Test record 1', None, 'Test record 3'], dtype='string'),
+            'record_date': pd.Series(['2023-01-01T00:00:00.000', None, '2023-01-03T00:00:00.000'], dtype='datetime64[ns]'),
+            'event_timestamp': pd.Series(['2023-01-01T00:00:00.000000', '2023-01-02T00:00:00.000000', '2023-01-03T00:00:00.000000'], dtype='datetime64[ns]'),
+            'revenue': pd.Series([200.00, 300.00, None], dtype='float64'),
+            'user_uuid': pd.Series(['123e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174001', '123e4567-e89b-12d3-a456-426614174002'], dtype='string'),
+            'long_number': pd.Series([123456789012345, 987654321098765, None], dtype='Int64'),
+            'crypto_hash': pd.Series(['0x7fffffffffffffffffffffffffffffff', None, '0x1fffffffffffffffffffffffffffffff'], dtype='string'),
+            })
+        assert_frame_equal(act, exp_df, check_column_type=True)
+
+    def test_almost_all_types_0_rows(self):
+        act = self.s_pandas_query('SELECT * FROM almost_all_types WHERE id = 0')
+        schema = {
+            name: str(val)
+            for name, val
+            in act.dtypes.to_dict().items()}
+        exp_schema = {
+            'id': 'Int32',
+            'active': 'bool',
+            'ip_address': 'string',
+            'age': 'int8',
+            'temperature': 'int16',
+            'grade': 'string',
+            'account_balance': 'float32',
+            'currency_symbol': 'string',
+            'description': 'string',
+            'record_date': 'datetime64[ns]',
+            'event_timestamp': 'datetime64[ns]',
+            'revenue': 'float64',
+            'user_uuid': 'string',
+            'long_number': 'Int64',
+            'crypto_hash': 'string',
+            }
+        self.assertEqual(exp_schema.keys(), schema.keys())
+        for key in exp_schema:
+            self.assertEqual((key, exp_schema[key]), (key, schema[key]))
+
+        exp_df = pd.DataFrame({
+            'id': pd.Series([], dtype='Int32'),
+            'active': pd.Series([], dtype='bool'),
+            'ip_address': pd.Series([], dtype='string'),
+            'age': pd.Series([], dtype='int8'),
+            'temperature': pd.Series([], dtype='int16'),
+            'grade': pd.Series([], dtype='string'),
+            'account_balance': pd.Series([], dtype='float32'),
+            'currency_symbol': pd.Series([], dtype='string'),
+            'description': pd.Series([], dtype='string'),
+            'record_date': pd.Series([], dtype='datetime64[ns]'),
+            'event_timestamp': pd.Series([], dtype='datetime64[ns]'),
+            'revenue': pd.Series([], dtype='float64'),
+            'user_uuid': pd.Series([], dtype='string'),
+            'long_number': pd.Series([], dtype='Int64'),
+            'crypto_hash': pd.Series([], dtype='string'),
+            })
+        assert_frame_equal(act, exp_df, check_column_type=True)
 
     async def test_async_pandas(self):
         act = await self.a_pandas_query('SELECT count() FROM trips')
