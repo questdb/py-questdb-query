@@ -118,10 +118,19 @@ async def _query_pandas(
                 try:
                     if col_type in ('TIMESTAMP', 'DATE'):
                         series = df[col_name]
-                        # Drop the UTC timezone during conversion.
-                        # This allows `.to_numpy()` on the series to
-                        # yield a `datetime64` dtype column.
-                        series = pd.to_datetime(series).dt.tz_convert(None)
+                        # if the series is empty (or full of nulls) its csv-read
+                        # default dtype (float64) is not one which we can
+                        # convert `.to_datetime`,
+                        if series.empty or series.isnull().all():
+                            # so to work around this we first convert the series
+                            # to Int64 (nullable).
+                            series = series.astype('Int64')
+                            series = pd.to_datetime(series, unit='ns')
+                        else:
+                            # Drop the UTC timezone during conversion.
+                            # This allows `.to_numpy()` on the series to
+                            # yield a `datetime64` dtype column.
+                            series = pd.to_datetime(series).dt.tz_convert(None)
                         df[col_name] = series
                 except Exception as e:
                     print(df[col_name])
