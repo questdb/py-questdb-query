@@ -46,6 +46,7 @@ async def _pre_query(
     params = [('query', query), ('count', 'true'), ('limit', '0')]
     dtypes_map = {
         'STRING': ('STRING', 'string'),
+        'VARCHAR': ('VARCHAR', 'string'),
         'SYMBOL': ('SYMBOL', 'string'),
         'SHORT': ('SHORT', 'int16'),
         'BYTE': ('BYTE', 'int8'),
