@@ -27,11 +27,10 @@ sys.path.append(str(
     Path(__file__).resolve().parent.parent /
     'c-questdb-client' / 'system_test'))
 from fixture import \
-    QuestDbFixture, install_questdb, install_questdb_from_repo, CA_PATH, AUTH, \
-    retry
+    QuestDbFixture, install_questdb, install_questdb_from_repo, AUTH, retry
 
 
-QUESTDB_VERSION = '7.4.0'
+QUESTDB_VERSION = '8.1.4'
 QUESTDB_INSTALL_PATH = None
 
 
@@ -99,6 +98,7 @@ def load_all_types_table(qdb):
             account_balance float,
             currency_symbol symbol,
             description string,
+            comment varchar,
             record_date date,
             event_timestamp timestamp,
             revenue double,
@@ -117,7 +117,8 @@ def load_all_types_table(qdb):
             grade, 
             account_balance, 
             currency_symbol, 
-            description, 
+            description,
+            comment,
             record_date, 
             event_timestamp, 
             revenue, 
@@ -125,10 +126,10 @@ def load_all_types_table(qdb):
             long_number, 
             crypto_hash
         ) VALUES
-         -- id  active ip_address    age temp  gra  acc_bal  curr   description      record_date                 event_timestamp                revenue user_uuid                               long_number      crypto_hash
-            (1, true,  '192.168.1.1', 25, 72,  'A', 1000.5,  'USD', 'Test record 1', '2023-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000000Z', 200.00, '123e4567-e89b-12d3-a456-426614174000', 123456789012345, '0x7fffffffffffffffffffffffffffffff'),
-            (2, false, NULL,          30, 68,  'B', 1500.25, 'EUR', NULL,            NULL,                       '2023-01-02T00:00:00.000000Z', 300.00, '123e4567-e89b-12d3-a456-426614174001', 987654321098765, NULL),
-            (3, NULL,  '10.0.0.1',    35, -40, 'C', NULL,    'JPY', 'Test record 3', '2023-01-03T00:00:00.000Z', '2023-01-03T00:00:00.000000Z', NULL,   '123e4567-e89b-12d3-a456-426614174002', NULL,            '0x1fffffffffffffffffffffffffffffff');
+         -- id  active ip_address    age temp  gra  acc_bal  curr   description      comment                 record_date                 event_timestamp                revenue user_uuid                               long_number      crypto_hash
+            (1, true,  '192.168.1.1', 25, 72,  'A', 1000.5,  'USD', 'Test record 1', 'pink',                 '2023-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000000Z', 200.00, '123e4567-e89b-12d3-a456-426614174000', 123456789012345, '0x7fffffffffffffffffffffffffffffff'),
+            (2, false, NULL,          30, 68,  'B', 1500.25, 'EUR', NULL,            'lightgoldenrodyellow', NULL,                       '2023-01-02T00:00:00.000000Z', 300.00, '123e4567-e89b-12d3-a456-426614174001', 987654321098765, NULL),
+            (3, NULL,  '10.0.0.1',    35, -40, 'C', NULL,    'JPY', 'Test record 3', NULL,                   '2023-01-03T00:00:00.000Z', '2023-01-03T00:00:00.000000Z', NULL,   '123e4567-e89b-12d3-a456-426614174002', NULL,            '0x1fffffffffffffffffffffffffffffff');
     ''')
 
 def load_trips_table(qdb):
@@ -442,6 +443,7 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
             'account_balance': 'float32',
             'currency_symbol': 'string',
             'description': 'string',
+            'comment': 'string',
             'record_date': 'datetime64[ns]',
             'event_timestamp': 'datetime64[ns]',
             'revenue': 'float64',
@@ -463,6 +465,7 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
             'account_balance': pd.Series([1000.5, 1500.25, None], dtype='float32'),
             'currency_symbol': pd.Series(['USD', 'EUR', 'JPY'], dtype='string'),
             'description': pd.Series(['Test record 1', None, 'Test record 3'], dtype='string'),
+            'comment': pd.Series(['pink', 'lightgoldenrodyellow', None], dtype='string'),
             'record_date': pd.Series(['2023-01-01T00:00:00.000', None, '2023-01-03T00:00:00.000'], dtype='datetime64[ns]'),
             'event_timestamp': pd.Series(['2023-01-01T00:00:00.000000', '2023-01-02T00:00:00.000000', '2023-01-03T00:00:00.000000'], dtype='datetime64[ns]'),
             'revenue': pd.Series([200.00, 300.00, None], dtype='float64'),
@@ -488,6 +491,7 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
             'account_balance': 'float32',
             'currency_symbol': 'string',
             'description': 'string',
+            'comment': 'string',
             'record_date': 'datetime64[ns]',
             'event_timestamp': 'datetime64[ns]',
             'revenue': 'float64',
@@ -509,6 +513,7 @@ class TestModule(unittest.IsolatedAsyncioTestCase):
             'account_balance': pd.Series([], dtype='float32'),
             'currency_symbol': pd.Series([], dtype='string'),
             'description': pd.Series([], dtype='string'),
+            'comment': pd.Series([], dtype='string'),
             'record_date': pd.Series([], dtype='datetime64[ns]'),
             'event_timestamp': pd.Series([], dtype='datetime64[ns]'),
             'revenue': pd.Series([], dtype='float64'),
